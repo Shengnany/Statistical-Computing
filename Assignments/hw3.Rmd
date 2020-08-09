@@ -1,0 +1,71 @@
+---
+title: "hw3"
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+
+
+```{r load}
+data("birthwt", package = "MASS")
+```
+
+```{r process}
+bwt <- with(birthwt, {
+  race <- factor(race, labels = c("white", "black", "other"))
+  ptd <- factor(ptl > 0)
+  ftv <- factor(ftv)
+  levels(ftv)[-(1:2)] <- "2+"
+  data.frame(low = factor(low), age, lwt, race, smoke = (smoke > 0), ptd, ht = (ht > 0), ui = (ui > 0), ftv)
+})
+options(contrasts = c("contr.treatment", "contr.poly"))
+bw.glm <- glm(low ~ ., family = binomial, data = bwt)
+summary(bw.glm)
+bw.glm2<- glm(low ~ (.)^2, family = binomial, data = bwt)
+
+```
+
+Q1
+```{r original}
+step1<- step(bw.glm, k = log(189),trace=1)
+summary(step1)
+```
+final model :low ~ lwt + ptd + ht
+BIC :231.09 (before:253.13)
+
+
+Q2
+```{r interaction,results='hide'}
+step2 <- step(bw.glm2,k = log(189),trace=0)
+summary(step2)
+```
+final model: low ~ age + lwt + ptd + ht + ftv + age:ftv
+BIC: 210 
+
+Q3
+```{r original}
+library(leaps)
+best3 <-  regsubsets(low~.,data=bwt,nvmax = 8, nbest = 1, really.big = T)
+summary(best3)
+which(summary(best3)$bic == min(summary(best3)$bic))
+summary(best3)$bic
+```
+Our model is low~lwt+ptd+ht
+BIC is -4.946053
+
+Q4
+```{r interaction}
+summary(bw.glm)
+best4 <-  regsubsets(low~(age+lwt+race+smoke+ptd+ht+ftv)^2,data=bwt,nvmax = 9, nbest = 1, really.big = T)
+summary(best4)
+which(summary(best4)$bic == min(summary(best4)$bic))
+summary(best4)$bic
+```
+After including interaction terms, the best model
+age + ptd + lwt + age:ht +age:lwt
+BIC  : -7.91444820 
+
+
+Q5
+The best model has variable: age + ptd + lwt + age:ht +age:lwt. It has lowest BIC.

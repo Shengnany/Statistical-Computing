@@ -1,0 +1,85 @@
+---
+title: "hw7"
+author: "Shengnan You"
+date: "4/30/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r data}
+# Load the data
+data("Boston", package = "MASS")
+head(Boston)
+# Split the data into training and test set
+set.seed(123)
+training.samples <- Boston$medv %>%
+  createDataPartition(p = 0.8, list = FALSE)
+train.data  <- Boston[training.samples, ]
+test.data <- Boston[-training.samples, ]
+```
+```{r Ridge}
+# Predictor variables
+x <- model.matrix(medv~., train.data)[,-1]
+# Outcome variable
+y <- train.data$medv
+# Find the best lambda using cross-validation
+set.seed(123) 
+cv <- cv.glmnet(x, y, alpha = 0)
+# Display the best lambda value
+cv$lambda.min
+# Fit the final model on the training data
+model <- glmnet(x, y, alpha = 0, lambda = cv$lambda.min)
+# Display regression coefficients
+coef(model)
+# Make predictions on the test data
+x.test <- model.matrix(medv ~., test.data)[,-1]
+predictions <- model %>% predict(x.test) %>% as.vector()
+# Model performance metrics
+data.frame(
+  RMSE = RMSE(predictions, test.data$medv),
+  Rsquare = R2(predictions, test.data$medv)
+)
+```
+```{r lasso}
+# Find the best lambda using cross-validation
+set.seed(123) 
+cv <- cv.glmnet(x, y, alpha = 1)
+# Display the best lambda value
+cv$lambda.min
+# Fit the final model on the training data
+model <- glmnet(x, y, alpha = 1, lambda = cv$lambda.min)
+# Dsiplay regression coefficients
+coef(model)
+# Make predictions on the test data
+x.test <- model.matrix(medv ~., test.data)[,-1]
+predictions <- model %>% predict(x.test) %>% as.vector()
+# Model performance metrics
+data.frame(
+  RMSE = RMSE(predictions, test.data$medv),
+  Rsquare = R2(predictions, test.data$medv)
+)
+```
+```{r elastic net}
+# Build the model
+set.seed(123)
+elastic <- train(
+  medv ~., data = train.data, method = "glmnet",
+  trControl = trainControl("cv", number = 10),
+  tuneLength = 10
+  )
+# Model coefficients
+coef(elastic$finalModel, elastic$bestTune$lambda)
+# Make predictions
+predictions <- elastic %>% predict(test.data)
+# Model prediction performance
+data.frame(
+  RMSE = RMSE(predictions, test.data$medv),
+  Rsquare = R2(predictions, test.data$medv)
+)
+```
+
+
+

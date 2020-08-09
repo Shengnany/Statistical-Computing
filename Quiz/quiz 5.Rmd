@@ -1,0 +1,76 @@
+---
+title: "quiz5"
+author: "Shengnan You"
+date: "4/7/2020"
+output: html_document
+---
+#10
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r data}
+setwd("~/Desktop")
+library('MASS')
+data <- read.table("banknote.txt",header=FALSE,sep=',')
+head(data)
+colnames(data) <- c('variance','skewness','curtosis','entropy','class')
+```
+```{r Q1}
+full <- glm(class ~ ., family = 'binomial', data = data)
+summary(full)
+step_model1 <- stepAIC(full,trace = TRUE,k = log(nrow(data)))
+summary(step_model1)
+BIC(step_model1)
+```
+Our final model is class ~ variance + skewness + curtosis. BIC :82.19474
+
+
+```{r Q2}
+full2 <- glm(class ~ .^2, family = 'binomial' , control = list(maxit =50), data = data)
+summary(full2)
+suppressWarnings(
+step_model2 <- stepAIC(full2, scope = list(lower=~1,upper=full2),k = log(nrow(data)), trace = FALSE)
+)
+summary(step_model2)
+BIC(glm(class ~ variance + skewness + curtosis + variance:curtosis, 
+    family = "binomial", data = data))
+
+```
+
+The final model is class ~ variance + skewness + curtosis + variance:curtosis and the BIC is 36.12012.
+
+```{r Q3}
+
+library(leaps)
+library(bestglm)
+library(dummies)
+best_model3 <- bestglm(data, family = binomial, IC = 'BIC')
+best_model3
+BIC(glm(class ~ variance + skewness + curtosis , data = data, family = 'binomial'))
+```
+Our model is class ~ variance + skewness + curtosis
+BIC is 82.19474
+
+```{r Q4}
+interactions <-data.frame(model.matrix(class ~ (variance + skewness + curtosis +entropy)^2,data = data))
+head(interactions)
+interactions <- interactions[,-1]
+interactions$class <- data$class
+suppressWarnings(
+best_model4 <- bestglm(interactions, family = binomial, IC = 'BIC')
+)
+summary(best_model4)
+BIC(glm(class ~ variance + skewness + curtosis + variance:curtosis, 
+    family = "binomial", data = data))
+```
+Our final model is class ~ variance + skewness + curtosis + variance.curtosis
+BIC is 36.12012
+
+Q5
+The best model is class ~ variance + skewness + curtosis + variance:curtosis which has the lowest BIC
+
+
+
+

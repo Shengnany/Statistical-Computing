@@ -1,0 +1,92 @@
+---
+title: "hw5"
+author: "Shengnan You"
+output: html_document
+---
+```{r}
+setwd('~/Desktop')
+titanic <- read.csv("Titanic.csv", header=TRUE, row.names = 1)
+titanic$Survived <- as.factor(titanic$Survived)
+str(titanic)
+```
+
+```{r Q1}
+`%notin%` <- Negate(`%in%`)
+data<- titanic[names(titanic)%notin% c("Name","Ticket","Cabin")]
+data <- na.omit(data)
+#num.left <- count(data,data$Survived==1)
+num.left <- length(which(data$Survived == 1))
+#  290 left
+library(tidyverse)
+library(caret)
+library(rpart)
+set.seed(123)
+training.samples <- data$Survived %>%
+  createDataPartition(p = 0.75, list = FALSE)
+train.data  <- data[training.samples, ]
+test.data <- data[-training.samples, ]
+head(data)
+```
+```{r Q2}
+install.packages('rattle')
+install.packages('rpart.plot')
+install.packages('RColorBrewer')
+library(rattle)
+set.seed(123)
+rpart.ctrl <- rpart.control(cp = 0)
+model1 <- rpart(Survived ~., data = train.data, method = "class",control = rpart.ctrl)
+library(rpart.plot)
+library(RColorBrewer)
+#rattle plot
+fancyRpartPlot(model1)
+predicted.classes <- model1 %>% 
+  predict(test.data, type = "class")
+head(predicted.classes)
+confusionMatrix(predicted.classes, test.data$Survived,
+                positive = "1")
+```
+Confusion Matrix and Statistics
+
+          Reference
+Prediction  0  1
+         0 87 14
+         1 19 58
+                                          
+               Accuracy : 0.8146
+            Sensitivity : 0.8056          
+            Specificity : 0.8208
+                          
+```{r Q3}
+set.seed(123)
+TrainData <- train.data[,2:8]
+TrainClasses <- train.data[,1]
+train.ctrl <- trainControl(method = "cv", number = 10)
+tGrid <- expand.grid(cp = seq(0, .02, .0001))
+
+model2 <- train(TrainData, TrainClasses, method = "rpart", metric = "Accuracy", trControl = train.ctrl, tuneGrid = tGrid)
+
+model2$bestTune$cp
+
+#complexity plot
+plot(model2)
+model2$finalModel
+#rattle plot
+fancyRpartPlot(model2$finalModel)
+```
+cp value: 0.02
+
+```{r Q4}
+# Make predictions on the test data
+pr.predicted.classes <- model2$finalModel %>% predict(test.data,type="class")
+# Compute model accuracy rate on test data
+confusionMatrix(pr.predicted.classes, test.data$Survived,positive = "1")
+```
+
+          Reference
+Prediction  0  1
+         0 87 11
+         1 19 61
+                                          
+               Accuracy : 0.8315   
+              Sensitivity : 0.8472          
+            Specificity : 0.8208  

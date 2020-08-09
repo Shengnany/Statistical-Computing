@@ -1,0 +1,287 @@
+---
+title: "final"
+author: "Shengnan You"
+date: "5/15/2020"
+output:
+  word_document: default
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+***Part1***
+```{r}
+setwd("~/Desktop")
+data <- read.csv('math.csv',header = T,sep = ';')
+head(data)
+str(data)
+```
+```{r}
+library(tidyverse)
+library(caret)
+library(MASS)
+library(glmnet)
+set.seed(123)
+data <- subset(data, select = -c(G1,G2))
+training.samples <- data$G3 %>% createDataPartition(p = 0.75, list = FALSE)
+train.data  <- data[training.samples, ]
+test.data <- data[-training.samples, ]
+```
+```{r}
+x <- model.matrix(G3~., train.data)[,-1]
+y <- train.data$G3
+set.seed(123) 
+cv <- cv.glmnet(x, y, alpha = 0)
+cv$lambda.min
+model <- glmnet(x, y, alpha = 0, lambda = cv$lambda.min)
+coef(model)
+x.test <- model.matrix(G3 ~., test.data)[,-1]
+predictions <- model %>% predict(x.test) %>% as.vector()
+data.frame(
+  RMSE = RMSE(predictions, test.data$G3),
+  Rsquare = R2(predictions, test.data$G3)
+)
+```
+lambda: 3.460982
+RMSE      Rsquare
+4.231594	0.1921623	
+
+```{r}
+set.seed(123) 
+cv <- cv.glmnet(x, y, alpha = 1)
+cv$lambda.min
+model <- glmnet(x, y, alpha = 1, lambda = cv$lambda.min)
+model
+coef(model)
+x.test <- model.matrix(G3 ~., test.data)[,-1]
+predictions <- model %>% predict(x.test) %>% as.vector()
+data.frame(
+  RMSE = RMSE(predictions, test.data$G3),
+  Rsquare = R2(predictions, test.data$G3)
+)
+```
+lambda: 0.3303675
+RMSE   Rsquare
+4.33255	0.149438	
+```{r}
+set.seed(123)
+model <- train(
+G3 ~., data = train.data, method = "glmnet",
+  trControl = trainControl("cv", number = 10),
+  tuneLength = 10
+)
+model$bestTune
+coef(model$finalModel, model$bestTune$lambda)
+x.test <- subset(test.data, select = -G3)
+predictions <- model %>% predict(x.test)
+data.frame(
+  RMSE = RMSE(predictions, test.data$G3),
+  Rsquare = R2(predictions, test.data$G3)
+)
+```
+tunning parameter:
+alpha  lambda
+0.6	0.6020372	
+prediction result:
+RMSE   Rsquare
+4.34871	0.1462301	
+```{r}
+fit1 <- glm(G3 ~ . ,data= train.data)
+#BIC
+fit1_step <- step(fit1, k = log(nrow(train.data)))
+summary(fit1_step)
+predictions <- fit1_step %>% predict(test.data)
+data.frame(
+  RMSE = RMSE(predictions, test.data$G3),
+  Rsquare = R2(predictions, test.data$G3)
+)
+# step_model2 <- stepAIC(fit1, k = log(nrow(train.data)), trace = FALSE)
+# summary(step_model2)
+```
+glm(formula = G3 ~ Medu + failures + romantic, data = train.data)
+Coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  10.0595     0.6946  14.482  < 2e-16 ***
+Medu          0.5457     0.2260   2.415  0.01635 *  
+failures     -1.9247     0.3451  -5.578 5.52e-08 ***
+romanticyes  -1.4528     0.5205  -2.791  0.00559 ** 
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+RMSE    Rsquare
+4.32272	0.147046	
+```{r}
+library(leaps)
+fit2 <- regsubsets(G3 ~ ., data = train.data ,nvmax = 30, nbest = 1, really.big = T)
+summary(fit2)
+which(summary(fit2)$bic == min(summary(fit2)$bic))
+fit3 <- glm(G3 ~ Mjob + failures + romantic, data=train.data)
+summary(fit3)
+predictions <- fit3 %>% predict(test.data)
+data.frame(
+  RMSE = RMSE(predictions, test.data$G3),
+  Rsquare = R2(predictions, test.data$G3)
+)
+```
+The third model has the lowest BIC
+Coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept)   10.6467     0.6350  16.767  < 2e-16 ***
+Mjobhealth     2.7995     0.9718   2.881  0.00426 ** 
+Mjobother      0.3377     0.7317   0.461  0.64480    
+Mjobservices   1.5130     0.7693   1.967  0.05018 .  
+Mjobteacher    0.7977     0.8806   0.906  0.36577    
+failures      -2.0927     0.3417  -6.124 2.94e-09 ***
+romanticyes   -1.3271     0.5192  -2.556  0.01109 * 
+RMSE      Rsquare
+4.339538	0.1412396	
+
+Question 7:
+I use RMSE and R squared as my criteria for checking each model s prediction performance on test data. 
+The model with highest R^2 and lowest RMSE is Ridge regression(the first model). So it is the best model I choose.
+Limitations:
+(1)We could include interactions of second order.
+(2)We have made assumptions in our linear models: 
+The relationship between X and the mean of Y is linear;
+Homoscedasticity; Observations are independent of each other.
+Normality. We could do model adequacy check by checking residual plots to avoid making wrong assumptions. Also, we assume the regressors are not random, but they may not be.
+(3)For our penalized regression models, we could also use try to use different lambda values. For example,  lambda.1se produces a simpler model compared to what we used - lambda.min, but the model might have a liitle less accuracy than the one obtained with lambda.min.
+(4)Since ridge regression is affected by scale of the regressors. so we can scale the predictors beforehand.
+(5)In stepwise regression and best subset regression, we could combine some other critria for checking model performance like Mallows CP, AIC.
+
+***Part 2***
+
+```{r}
+library(tidyverse)
+library(caret)
+library(randomForest)
+data <- read.csv('Titanic3.csv')
+str(data)
+data <- subset(data, select = -c(name,ticket,cabin))
+#data <- subset(data, select = -c(Name,Ticket,Cabin,PassengerId))
+data <- subset(data, is.na(age) == FALSE)
+data$survived <- as.factor(data$survived)
+nrow(data)
+#1046
+set.seed(123)
+split <- data$survived %>% 
+createDataPartition(p = 0.75, list = FALSE)
+train <- data[split,]
+test <- data[-split,]
+```
+1046 passengers
+
+```{r rf,model,prediction}
+set.seed(123)
+model <- train(
+  survived ~., data = train, method = "rf",
+  trControl = trainControl("cv", number = 10),
+  importance = TRUE
+  )
+# Best tuning parameter
+model$bestTune
+model$finalModel
+confusionMatrix(model$finalModel$predicted,train$survived,positive = "1")
+prediction <- model %>% predict(test)
+confusionMatrix(prediction,test$survived,positive = "1")
+
+```
+(a)
+OOB estimate of  error rate: 19.21%
+Confusion matrix:
+    0   1 class.error
+0 425  40  0.08602151
+1 111 210  0.34579439
+Sensitivity : 0.6542            
+Specificity : 0.9140  
+Accuracy : 0.8079
+(b)
+Confusion Matrix and Statistics
+          Reference
+Prediction   0   1
+         0 138  35
+         1  16  71
+Sensitivity : 0.6698          
+Specificity : 0.8961
+Accuracy : 0.8038 
+```{r CART,model2 pred}
+library(rpart)
+library(rattle)
+set.seed(123)
+model <- rpart(survived~., data = train, control = rpart.control(cp=0))
+fancyRpartPlot(model)
+summary(model)
+#Some options which makes it more like the original tree
+model1 <- rpart(survived~., data = train, control = list(cp = 0, maxcompete = 0, maxsurrogate = 0, xval = 0, minsplit = 10, minbucket = 5))
+fancyRpartPlot(model1)
+#summary(model1)
+#prune the tree
+library(caret)
+set.seed(123)
+model2 <- train(
+  survived ~., data = train, method = "rpart",
+  trControl = trainControl("cv", number = 10),
+  tuneLength = 100
+  )
+plot(model2)
+model2$bestTune
+fancyRpartPlot(model2$finalModel)
+
+pred <- predict(model2, newdata = test)
+confusionMatrix(pred,test$survived,positive="1")
+```
+Confusion Matrix and Statistics
+          Reference
+Prediction   0   1
+         0 140  36
+         1  14  70
+Sensitivity : 0.6604          
+Specificity : 0.9091
+Accuracy : 0.8077 
+```{r}
+library('MASS')
+full2 <- glm(survived ~ ., family = 'binomial' , control = list(maxit =50), data = train)
+summary(full2)
+step_model2 <- stepAIC(full2, scope = list(lower=~1,upper=full2),k = log(nrow(train)), trace = FALSE)
+summary(step_model2)
+BIC(step_model2)
+```
+glm(formula = survived ~ pclass + sex + age, family = "binomial", data = train, control = list(maxit = 50))
+BIC: 748.8953
+```{r  lr,step_model2,predicted.classes}
+probabilities <- step_model2 %>% predict(test, type = "response")
+predicted.classes <- ifelse(probabilities > 0.5, 1, 0)
+confusionMatrix(as.factor(predicted.classes), as.factor(test$survived),positive = "1")
+```
+Confusion Matrix and Statistics
+          Reference
+Prediction   0   1
+         0 118  30
+         1  36  76
+Accuracy : 0.7462 
+Sensitivity : 0.7170          
+Specificity : 0.7662
+
+```{r}
+#From above, we have obtained the predicted class results for each test subject from each classifier using predict()
+# Random forest : prediction
+# CART : pred
+# Logitstic regression: predicted.classes
+#The majority vote
+test$rf <- prediction
+test$cart <- pred
+test$lr <- predicted.classes
+
+test$pred_majority<-as.factor(ifelse(test$rf=='Y' & test$cart=='1','1',ifelse(test$rf=='1' & test$lr=='1','1',ifelse(test$cart=='1' & test$lr=='1','1','0'))))
+
+confusionMatrix(test$pred_majority, as.factor(test$survived),positive = "1")
+```
+Confusion Matrix and Statistics
+          Reference
+Prediction   0   1
+         0 134  40
+         1  20  66
+Accuracy : 0.7692
+Sensitivity : 0.6226         
+Specificity : 0.8701 

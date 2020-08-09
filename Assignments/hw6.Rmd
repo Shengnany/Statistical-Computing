@@ -1,0 +1,72 @@
+---
+title: "hw6"
+author: "Shengnan You"
+date: "4/26/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r data}
+setwd("~/Desktop")
+data <- read.csv("spambase.data")
+data$col.58 <- as.factor(data$col.58)
+str(data)
+for(i in 1:58) {
+  names(data)[i] <- paste("col.",as.character(i),sep = "")
+}
+
+```
+
+```{r Q1}
+set.seed("123")
+library("caret")
+training.samples <- data$col.58 %>% 
+  createDataPartition(p = 0.75, list = FALSE) #Caret
+Train  <- data[training.samples, ] 
+Test <- data[-training.samples, ]
+```
+```{r Q2}
+set.seed(123)
+install.packages("randomForest")
+library(randomForest)
+library(caret
+model <- randomForest(col.58~ ., data =  Train, importance = TRUE)
+model
+confusionMatrix(model$predicted,Train$col.58)
+```
+Confusion matrix:
+     0    1 class.error
+0 2028   63  0.03012912
+1  106 1253  0.07799853
+  OOB estimate of  error rate: 4.9%
+  Accuracy : 0.951
+  
+```{r Q3}
+library(dplyr)
+predicted.classes <- model %>% predict(Test)
+confusionMatrix(predicted.classes,Test$col.58)
+```
+            Reference
+Prediction   0   1
+         0 676  28
+         1  21 425
+            Sensitivity : 0.9699          
+            Specificity : 0.9382
+            Accuracy : 0.9574
+  
+```{r Q4}
+# Plot MeanDecreaseAccuracy
+varImpPlot(model, type = 1)
+# Plot MeanDecreaseGini
+varImpPlot(model, type = 2)
+```
+  
+```{r Q5}
+importance(model)[,3]
+```
+
+Q6 26/3
+

@@ -1,0 +1,99 @@
+---
+title: "597 project"
+author: "Shengnan You"
+date: "5/4/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r part2}
+# Load the dataset package to get iris data
+library(datasets)
+# load the data
+data(iris)
+summary(iris)
+install.packages('e1071')
+library(e1071)
+library(caret)
+library(dplyr)
+library(tidyverse)
+set.seed(100)
+training.samples <-   iris$Species %>% createDataPartition(p = 0.8, list = FALSE)
+train.data <- iris[training.samples, ]
+test.data <- iris[-training.samples, ]
+model <- svm(Species ~ ., data=train.data)
+summary(model)
+predicted.values <- predict(model,test.data[1:4])
+table(predicted.values,test.data[,5])
+confusionMatrix(predicted.values ,test.data[,5])
+
+
+result <- tune(svm,train.x=train.data[1:4],train.y=train.data[,5],kernel='radial', ranges=list(cost=10^(-3:3), gamma=c(0.001:5)))
+summary(result)
+svm.tune <- svm(Species ~ ., data=train.data, kernel="radial", cost=1000, gamma=0.001)
+summary(svm.tune)
+
+tuned.predicted.values <- predict(svm.tune, test.data[1:4])
+table(tuned.predicted.values ,test.data[,5])
+confusionMatrix(tuned.predicted.values ,test.data[,5])
+
+```
+```{r part3}
+#logistics regression
+install.packages('e1071')
+library(e1071)
+install.packages('titanic')
+library(titanic)
+library(dplyr)
+library(caret)
+
+raw.data <- titanic_train
+head(raw.data)
+str(raw.data)
+# NA consistency
+raw.data[raw.data==""] <- NA
+# check whether there is missing values
+colSums(is.na(raw.data))
+# Get rid of NA values
+raw.data <- na.omit(raw.data)
+#Get rid of the variables that are not very useful in our regression
+new.data <- subset(raw.data, select = c(2,3,5,6,7,8,10,12))
+# Factor our prediction variable
+new.data$Survived <- as.factor(new.data$Survived)
+#split into training set and test set 
+split <- new.data$Survived %>% 
+createDataPartition(p = 0.75, list = FALSE)
+train <- new.data[split,]
+test <- new.data[-split,]
+
+
+train
+r.model <- glm(Survived ~.,family=binomial(link='logit'),data=train)
+summary(r.model)
+r.model$aic
+kable(r.model$coefficients)
+pred <- r.model %>% predict(test,type = "response")
+pred <- ifelse(pred > 0.5, 1, 0)
+confusionMatrix(as.factor(pred),test$Survived, positive = "1")
+
+
+s.model <- svm(Survived ~ ., data=train)
+summary(s.model)
+install.packages(kntir)
+library(knitr)
+
+set.seed(123)
+tune.model <- train(
+  Survived ~., data = train, method = "svmRadial",
+  trControl = trainControl("cv", number = 10),
+  preProcess = c("center","scale"),
+  tuneLength = 10
+  )
+tune.model$bestTune
+predicted.classes <- tune.model %>% predict(test)
+confusionMatrix(as.factor(predicted.classes),test$Survived, positive = "1")
+```
+

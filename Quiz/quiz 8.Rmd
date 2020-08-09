@@ -1,0 +1,80 @@
+---
+title: "Quiz 8"
+author: "Shengnan You"
+date: "4/28/2020"
+output: html_document
+---
+
+#9
+#reverse sensitivity and specificity -1
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r Q1}
+library(tidyverse)
+library(caret)
+library(randomForest)
+
+
+# Argument row.names = 1  means I also exclude passengerID since it is not useful in our prediction
+data<- read.csv('~/Desktop/Titanic.csv', sep = ',', row.names = 1)
+str(data)
+data$Survived <- as.factor(data$Survived)
+data <- subset(data, select = -c(Name,Ticket,Cabin))
+data <- subset(data, !is.na(Age))
+num.left <- nrow(data)
+num.left
+split <- data$Survived %>% 
+createDataPartition(p = 0.75, list = FALSE)
+train <- data[split,]
+test <- data[-split,]
+
+```
+714
+```{r Q2}
+set.seed(123)
+model <- train(
+  Survived ~., data = train, method = "rf",
+  trControl = trainControl("cv", number = 10),
+  importance = TRUE
+  )
+# Best tuning parameter
+model$bestTune
+model$finalModel
+model$finalModel$confusion
+confusionMatrix(model$finalModel$predicted,train$Survived)
+```
+        OOB estimate of  error rate: 18.1%
+Confusion matrix:
+    0   1 class.error
+0 293  25  0.07861635
+1  72 146  0.33027523
+Accuracy : 0.819  
+Sensitivity : 0.9214          
+Specificity : 0.6697 
+```{r Q3}
+pred <- model %>% predict(test)
+head(pred)
+confusionMatrix(pred,test$Survived)
+```
+          Reference
+Prediction  0  1
+         0 98 26
+         1  8 46
+Accuracy : 0.809
+Sensitivity : 0.9245          
+Specificity : 0.6389
+```{r Q4}
+# Plot MeanDecreaseAccuracy
+varImpPlot(model$finalModel, type = 1)
+# Plot MeanDecreaseGini
+varImpPlot(model$finalModel, type = 2)
+```
+```{r Q5}
+varImp(model)
+```
+```{r Q6}
+# 36^(1/2) = 6
+```
+

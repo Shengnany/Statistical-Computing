@@ -1,0 +1,104 @@
+---
+title: "quiz9"
+author: "Shengnan You"
+date: "5/5/2020"
+output: html_document
+---
+
+#10
+#Carefully check the output of Q3
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r data}
+library(MASS)
+library(tidyverse)
+library(caret)
+library(glmnet)
+setwd("~/Desktop")
+ames <- read.csv("Ames_Housing_Data.csv",row.names = 1)
+head(ames)
+str(ames)
+summary(ames)
+set.seed(123)
+training.samples <- ames$SalePrice %>% createDataPartition(p = 0.75, list = FALSE)
+train.data  <- ames[training.samples, ]
+test.data <- ames[-training.samples, ]
+ames$CentralAir <- as.factor(ames$CentralAir)
+```
+
+```{r }
+x <- model.matrix(SalePrice~., train.data)[,-1]
+y <- train.data$SalePrice
+set.seed(123) 
+cv <- cv.glmnet(x, y, alpha = 0)
+cv$lambda.min
+```
+lambda = 6452.856
+
+```{r}
+ridge.model <- glmnet(x, y, alpha = 0, lambda = cv$lambda.min)
+coef(ridge.model)
+```
+```{r}
+x.test <- model.matrix(SalePrice ~., test.data)[,-1]
+predictions <- ridge.model %>% predict(x.test) %>% as.vector()
+data.frame(
+  RMSE = RMSE(predictions, test.data$SalePrice),
+  Rsquare = R2(predictions, test.data$SalePrice)
+)
+```
+RMSE      Rsquare
+46750.31	0.6691074	
+
+```{r}
+set.seed(123) 
+cv2 <- cv.glmnet(x, y, alpha = 1)
+cv2$lambda.min
+```
+lambda = 37.79451
+
+```{r}
+lasso.model <- glmnet(x, y, alpha = 1, lambda = cv2$lambda.min)
+coef(lasso.model)
+```
+
+```{r}
+x.test <- model.matrix(SalePrice ~., test.data)[,-1]
+predictions <- lasso.model %>% predict(x.test) %>% as.vector()
+data.frame(
+  RMSE = RMSE(predictions, test.data$SalePrice),
+  Rsquare = R2(predictions, test.data$SalePrice)
+)
+```
+RMSE    Rsquare
+48485.8	0.6606023	
+
+```{r}
+set.seed(123)
+net <- train(
+  SalePrice ~., data = train.data, method = "glmnet",
+  trControl = trainControl("cv", number = 10),
+  tuneLength = 10
+)
+summary(net)
+net$bestTune
+coef(net$finalModel, net$bestTune$lambda)
+```
+
+alpha  lambda
+	0.1	 849.1095	
+
+```{r}
+x.test <- model.matrix(SalePrice ~.,data = test.data)[,-1]
+net.model <- glmnet(x, y, alpha = 0.1, lambda = net$bestTune$lambda)
+predictions <- net.model %>% predict(x.test)
+data.frame(
+  RMSE = RMSE(predictions, test.data$SalePrice),
+  Rsquare = R2(predictions, test.data$SalePrice)
+)
+```
+
+RMSE      R squared
+48756.73	0.6591582	

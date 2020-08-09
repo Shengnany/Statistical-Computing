@@ -1,0 +1,96 @@
+---
+title: "quiz7"
+author: "Shengnan You"
+date: "4/21/2020"
+output: html_document
+---
+
+#10
+#different result, the reason would be that use different function to seperate data
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r data}
+install.packages('rattle')
+install.packages('rpart.plot')
+install.packages('RColorBrewer')
+setwd('~/Desktop')
+caesarian <- read.csv("caesarian.csv", header=TRUE)
+caesarian$Caesarian <- as.factor(caesarian$Caesarian )
+caesarian$Delivery.number <- as.factor(caesarian$Delivery.number )
+caesarian$Delivery.time <- as.factor(caesarian$Delivery.time)
+caesarian$Blood.Pressure <- as.factor(caesarian$Blood.Pressure)
+caesarian$Heart.Problem <- as.factor(caesarian$Heart.Problem)
+str(caesarian)
+```
+```{r Q1}
+library(tidyverse)
+library(caret)
+library(rpart)
+library(rattle)
+library(rpart.plot)
+library(RColorBrewer)
+set.seed(123)
+training.samples <- caesarian$Caesarian %>%
+  createDataPartition(p = 0.75, list = FALSE)
+train.data  <- caesarian[training.samples, ]
+test.data <- caesarian[-training.samples, ]
+head(caesarian)
+```
+
+```{r Q2}
+model1 <- rpart(Caesarian ~., data = train.data, method = "class", control = list(cp = 0, maxcompete = 0, maxsurrogate = 0, xval = 0, minsplit = 10, minbucket = 5))
+par(xpd = NA)
+fancyRpartPlot(model1)
+predicted.classes <- model1 %>% 
+  predict(test.data, type = "class")
+head(predicted.classes)
+confusionMatrix(predicted.classes,test.data$Caesarian,positive = "1")
+```
+Confusion Matrix and Statistics
+s
+          Reference
+Prediction 0 1
+         0 7 5
+         1 1 6
+
+Accuracy : 0.6316
+            Sensitivity : 0.4545          
+            Specificity : 0.8750  
+
+```{r Q3}
+library(caret)
+set.seed(123)
+TrainData <- train.data[,1:5]
+TrainClasses <- train.data[,6]
+train.ctrl <- trainControl(method = "cv", number = 10)
+tGrid <- expand.grid(cp = seq(0, .04, .001))
+model2 <- train(TrainData, TrainClasses, method = "rpart", metric = "Accuracy", trControl = train.ctrl, tuneGrid = tGrid)
+model2
+#complexity plot
+plot(model2)
+model2$bestTune
+#the pruned tree
+model2$finalModel
+fancyRpartPlot(model2$finalModel)
+```
+cp 0.04
+```{r Q4}
+# Make predictions on the test data
+pr.predicted.classes <- model2$finalModel %>% predict(test.data,type="class")
+# Compute model accuracy rate on test data
+confusionMatrix(pr.predicted.classes, test.data$Caesarian,positive = "1")
+```
+          Reference
+Prediction 0 1
+         0 7 5
+         1 1 6
+Accuracy : 0.6842 
+Sensitivity : 0.5455          
+Specificity : 0.8750  
+```{r}
+testSet$pred_majority<-as.factor(ifelse(=='1' & testSet$pred_knn=='1','Y',ifelse(testSet$pred_rf=='Y' & testSet$pred_lr=='Y','Y',ifelse(testSet$pred_knn=='Y' & testSet$pred_lr=='Y','Y','N'))))
+```
+

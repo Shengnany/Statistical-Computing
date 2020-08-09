@@ -1,0 +1,107 @@
+---
+title: "quiz6"
+author: "Shengnan You"
+date: "4/14/2020"
+output: html_document
+---
+#12.5
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+setwd("~/Desktop")
+library('MASS')
+data <- read.table("banknote.txt",header=FALSE,sep=',')
+head(data)
+colnames(data) <- c('variance','skewness','curtosis','entropy','class')
+```
+```{r }
+install.packages("caTools")
+set.seed(123)
+library(caTools)
+library('dplyr')
+library('caret')
+training.samples <- data$class %>% 
+  createDataPartition(p = 0.75, list = FALSE) #Caret
+Train  <- data[training.samples, ] 
+Test <- data[-training.samples, ]
+```
+```{r Q1}
+library('MASS')
+full2 <- glm(class ~ .^2, family = 'binomial' , control = list(maxit =50), data = Train)
+summary(full2)
+suppressWarnings(
+step_model2 <- stepAIC(full2, scope = list(lower=~1,upper=full2),k = log(nrow(data)), trace = FALSE)
+)
+summary(step_model2)
+BIC(glm(class ~ variance + skewness + curtosis + variance:curtosis, family = "binomial", data = Train))
+```
+ Our best model isclass ~ variance + skewness + curtosis + variance:curtosis with BIC 34.68
+ 
+```{r Q2}
+probabilities <- step_model2 %>% predict(Train, type = "response")
+predicted.classes <- ifelse(probabilities > 0.7, 1, 0)
+train.classes <-  Train$class
+# mean(predicted.classes == train.data$low)
+#table(train.classes ,predicted.classes)
+confusionMatrix(as.factor(predicted.classes), as.factor(train.classes),
+                positive = "1")
+```
+ 
+          Reference
+Prediction   0   1
+         0 580   0
+         1   0 449
+                       
+      Accuracy : 1     
+      Sensitivity : 1.0000     
+      Specificity : 1.0000
+
+```{r Q3}
+probabilities2 <- step_model2 %>% predict(Test, type = "response")
+predicted.classes2 <- ifelse(probabilities2 > 0.5, 1, 0)
+train.classes2 <-  Test$class
+# mean(predicted.classes == train.data$low)
+#table(train.classes ,predicted.classes)
+confusionMatrix(as.factor(predicted.classes2),  as.factor(train.classes2),
+                positive = "1")
+```
+
+          Reference
+Prediction   0   1
+         0 182   0
+         1   0 161
+            Accuracy : 1  
+            Sensitivity : 1.0000     
+            Specificity : 1.0000 
+            
+```{r Q4}
+library('pROC')
+par(pty = 's')
+test.fit <- step_model2 %>% glm(family = 'binomial', data = Test)
+roc(Test$class, test.fit$fitted.values, plot = TRUE, legacy.axes = TRUE, percent = TRUE, xlab = "False Positive Percentege", ylab = "Truue Positive Percentege", lwd = 4, col = 'blue', print.auc = TRUE)
+```
+AUC : 100%
+
+```{r}
+train.control <- trainControl(method = "LOOCV")
+suppressWarnings(
+ cv.result <- train(class ~ variance + skewness + curtosis + variance:curtosis, data = data, method = "glm", family = 'binomial', trControl = train.control)
+)
+
+predict.cv.prob <- cv.result %>% predict(data)
+predict.cv.classes <- ifelse(predict.cv.prob>0.5,1,0)
+test.cv.classes <-  data$class
+confusionMatrix(as.factor(predict.cv.classes),  as.factor(test.cv.classes),
+                positive = "1")
+#table(data$class, round(cv.result$pred$pred))
+```
+         Reference
+Prediction   0   1
+         0 762   0
+         1   0 610
+            Accuracy : 1 
+            Sensitivity : 1.0000     
+            Specificity : 1.0000 
